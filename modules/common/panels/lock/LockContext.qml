@@ -65,9 +65,23 @@ Scope {
         pam.start();
     }
 
+    Timer {
+        id: fingerPamStartTimer
+        interval: 500
+        repeat: false
+        onTriggered: {
+            if (root.fingerprintsConfigured && !fingerPam.active) {
+                fingerPam.start();
+            }
+        }
+    }
+
     function tryFingerUnlock() {
+        stopFingerPam();
         if (root.fingerprintsConfigured) {
-            fingerPam.start();
+            fingerPamStartTimer.restart();
+        } else {
+            fingerprintCheckProc.running = true;
         }
     }
 
@@ -129,8 +143,8 @@ Scope {
             if (result == PamResult.Success) {
                 root.unlocked(root.targetAction);
                 stopFingerPam();
-            } else if (result == PamResult.Error) { // if timeout or etc..
-                tryFingerUnlock()
+            } else if (result == PamResult.Error) { // if timeout or error on sleep wake
+                tryFingerUnlock();
             }
         }
     }

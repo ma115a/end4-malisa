@@ -51,6 +51,13 @@ Singleton {
         }
     }
 
+    onScreenLockedChanged: {
+        if (root.screenLocked) {
+            Quickshell.execDetached(["bash", "-c", "playerctl --all-players pause"]);
+            MprisController.pauseAll();
+        }
+    }
+
     GlobalShortcut {
         name: "workspaceNumber"
         description: "Hold to show workspace numbers, release to show icons"

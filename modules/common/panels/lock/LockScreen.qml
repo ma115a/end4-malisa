@@ -93,10 +93,8 @@ Scope {
     }
 
     function lock() {
-        if (Config.options.lock.useHyprlock) {
-            Quickshell.execDetached(["bash", "-c", "pidof hyprlock || hyprlock"]);
-            return;
-        }
+        Quickshell.execDetached(["playerctl", "--all-players", "pause"]);
+        MprisController.pauseAll();
         GlobalStates.screenLocked = true;
     }
 
@@ -104,10 +102,11 @@ Scope {
         target: "lock"
 
         function activate(): void {
-            root.lock();
+            GlobalStates.screenLocked = true;
         }
         function focus(): void {
             lockContext.shouldReFocus();
+            lockContext.tryFingerUnlock();
         }
     }
 
@@ -116,7 +115,7 @@ Scope {
         description: "Locks the screen"
 
         onPressed: {
-            root.lock()
+            GlobalStates.screenLocked = true;
         }
     }
 
@@ -127,6 +126,7 @@ Scope {
 
         onPressed: {
             lockContext.shouldReFocus();
+            lockContext.tryFingerUnlock();
         }
     }
 

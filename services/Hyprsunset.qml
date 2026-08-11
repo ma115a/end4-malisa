@@ -120,8 +120,14 @@ Singleton {
 
         root.gammaChangeAttempt();
 
-        root.startHyprsunset();
-        Quickshell.execDetached(["bash", "-c", `hyprctl hyprsunset gamma ${root.gamma}`]);
+        if (root.gamma >= 100) {
+            Quickshell.execDetached(["hyprctl", "hyprsunset", "identity"]);
+        } else {
+            root.startHyprsunset();
+            // Map gamma percentage (25-95%) safely to temperature (3000K-6000K) so screen never turns black
+            const temp = Math.round(2500 + (root.gamma / 100.0) * 4000);
+            Quickshell.execDetached(["bash", "-c", `hyprctl hyprsunset temperature ${temp}`]);
+        }
     }
 
     function fetchState() {

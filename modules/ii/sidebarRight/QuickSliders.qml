@@ -41,24 +41,12 @@ Rectangle {
             active: Config.options.sidebar.quickSliders.showBrightness
             sourceComponent: QuickSlider {
                 materialSymbol: "brightness_medium"
-                secondaryMaterialSymbol: "wb_twilight"
-                stopIndicatorValues: Hyprsunset.gamma !== 100 && root.brightnessMonitor?.brightness !== 0 ? [0.3 + root.brightnessMonitor?.brightness * 0.7] : []
-                value: Hyprsunset.gamma === 100? 0.3 + root.brightnessMonitor?.brightness * 0.7 : (Hyprsunset.gamma - Hyprsunset.gammaLowerLimit) / (100 - Hyprsunset.gammaLowerLimit) * 0.3
-                tooltipContent: Hyprsunset.gamma === 100 ? `${Math.round(root.brightnessMonitor?.brightness * 100)}%` : `${Translation.tr("Gamma")} ${Hyprsunset.gamma}%`
+                secondaryMaterialSymbol: ""
+                stopIndicatorValues: []
+                value: root.brightnessMonitor?.brightness ?? 0.5
+                tooltipContent: `${Math.round((root.brightnessMonitor?.brightness ?? 0) * 100)}%`
                 onMoved: {
-                    if (value >= 0.3) {
-                        // 0.3 - 1.0 brightness
-                        root.brightnessMonitor.setBrightness((value - 0.3) / 0.7);
-                        if (Hyprsunset.gamma !== 100) {
-                            Hyprsunset.setGamma(100);
-                        }
-                    } else {
-                        // 0 - 0.3 gamma
-                        if (root.brightnessMonitor.brightness !== 0) {
-                            root.brightnessMonitor.setBrightness(0);
-                        }
-                        Hyprsunset.setGamma((value / 0.3 * (100 - Hyprsunset.gammaLowerLimit) + Hyprsunset.gammaLowerLimit));
-                    }
+                    root.brightnessMonitor?.setBrightness(value);
                 }
             }
         }
@@ -136,6 +124,17 @@ Rectangle {
 
             Behavior on color {
                 animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            onWheel: wheel => {
+                const delta = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
+                const newValue = Math.max(0, Math.min(1, quickSlider.value + delta));
+                quickSlider.value = newValue;
+                quickSlider.moved();
             }
         }
     }

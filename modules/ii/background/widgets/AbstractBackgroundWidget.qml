@@ -18,8 +18,24 @@ AbstractWidget {
     property bool visibleWhenLocked: Config.options.lock.showWidgets
     property var configEntry: Config.options.background.widgets[configEntryName]
     property string placementStrategy: configEntry.placementStrategy
-    property real targetX: Math.max(0, Math.min(configEntry.x, scaledScreenWidth - width))
-    property real targetY : Math.max(0, Math.min(configEntry.y, scaledScreenHeight - height))
+    property string screenName: ""
+
+    property real savedX: {
+        if (configEntry?.positions && screenName && configEntry.positions[screenName] && configEntry.positions[screenName].x !== undefined) {
+            return configEntry.positions[screenName].x
+        }
+        return configEntry?.x ?? 0
+    }
+
+    property real savedY: {
+        if (configEntry?.positions && screenName && configEntry.positions[screenName] && configEntry.positions[screenName].y !== undefined) {
+            return configEntry.positions[screenName].y
+        }
+        return configEntry?.y ?? 0
+    }
+
+    property real targetX: Math.max(0, Math.min(savedX, scaledScreenWidth - width))
+    property real targetY: Math.max(0, Math.min(savedY, scaledScreenHeight - height))
     x: targetX
     y: targetY
     visible: opacity > 0
@@ -39,10 +55,15 @@ AbstractWidget {
     }
 
     onReleased: {
+        if (screenName && screenName !== "") {
+            let posMap = configEntry.positions ? JSON.parse(JSON.stringify(configEntry.positions)) : {};
+            posMap[screenName] = { x: root.x, y: root.y };
+            configEntry.positions = posMap;
+        }
         configEntry.x = root.x;
         configEntry.y = root.y;
-        root.targetX = Qt.binding(() => Math.max(0, Math.min(configEntry.x, scaledScreenWidth - width)));
-        root.targetY = Qt.binding(() => Math.max(0, Math.min(configEntry.y, scaledScreenHeight - height)));
+        root.targetX = Qt.binding(() => Math.max(0, Math.min(root.savedX, scaledScreenWidth - width)));
+        root.targetY = Qt.binding(() => Math.max(0, Math.min(root.savedY, scaledScreenHeight - height)));
         root.restoreXYBinding();
     }
 

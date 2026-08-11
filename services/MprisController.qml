@@ -180,6 +180,7 @@ Singleton {
 			for (const player of Mpris.players.values) {
 				if (player.canPause) player.pause();
 			}
+			Quickshell.execDetached(["bash", "-c", "playerctl --all-players pause"]);
 		}
 
 		function playPause(): void { root.togglePlaying(); }

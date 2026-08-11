@@ -104,37 +104,40 @@ Singleton {
         updateDiskUsageHistory()
     }
 
+    Component.onCompleted: updateStats()
+
+    function updateStats() {
+        fileMeminfo.reload()
+        fileStat.reload()
+
+        const textMeminfo = fileMeminfo.text()
+        memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)
+        memoryFree  = Number(textMeminfo.match(/MemAvailable: *(\d+)/)?.[1] ?? 0)
+        swapTotal   = Number(textMeminfo.match(/SwapTotal: *(\d+)/)?.[1] ?? 1)
+        swapFree    = Number(textMeminfo.match(/SwapFree: *(\d+)/)?.[1] ?? 0)
+
+        const textStat = fileStat.text()
+        const cpuLine  = textStat.match(/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/)
+        if (cpuLine) {
+            const stats = cpuLine.slice(1).map(Number)
+            const total = stats.reduce((a, b) => a + b, 0)
+            const idle  = stats[3]
+            if (previousCpuStats) {
+                const totalDiff = total - previousCpuStats.total
+                const idleDiff  = idle  - previousCpuStats.idle
+                cpuUsage = totalDiff > 0 ? (1 - idleDiff / totalDiff) : 0
+            }
+            previousCpuStats = { total, idle }
+        }
+
+        root.updateHistories()
+    }
+
     Timer {
-        interval: 1
+        interval: Config.options?.resources?.updateInterval ?? 3000
         running: true
         repeat: true
-        onTriggered: {
-            fileMeminfo.reload()
-            fileStat.reload()
-
-            const textMeminfo = fileMeminfo.text()
-            memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)
-            memoryFree  = Number(textMeminfo.match(/MemAvailable: *(\d+)/)?.[1] ?? 0)
-            swapTotal   = Number(textMeminfo.match(/SwapTotal: *(\d+)/)?.[1] ?? 1)
-            swapFree    = Number(textMeminfo.match(/SwapFree: *(\d+)/)?.[1] ?? 0)
-
-            const textStat = fileStat.text()
-            const cpuLine  = textStat.match(/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/)
-            if (cpuLine) {
-                const stats = cpuLine.slice(1).map(Number)
-                const total = stats.reduce((a, b) => a + b, 0)
-                const idle  = stats[3]
-                if (previousCpuStats) {
-                    const totalDiff = total - previousCpuStats.total
-                    const idleDiff  = idle  - previousCpuStats.idle
-                    cpuUsage = totalDiff > 0 ? (1 - idleDiff / totalDiff) : 0
-                }
-                previousCpuStats = { total, idle }
-            }
-
-            root.updateHistories()
-            interval = Config.options?.resources?.updateInterval ?? 3000
-        }
+        onTriggered: root.updateStats()
     }
 
     FileView { id: fileMeminfo; path: "/proc/meminfo" }

@@ -14,41 +14,18 @@ Singleton {
     property bool enabled: confOpt.value == shaderPath || weak
     property bool weak: confOpt.value == weakShaderPath
 
-    function enable() {
-        HyprlandConfig.setMany({
-            "decoration:screen_shader": root.shaderPath,
-            "debug:damage_tracking": 1, // Turn off dmg tracking to prevent weird flashes. 1 = monitor only
-        });
-    }
-
-    function enableWeak() {
-        HyprlandConfig.setMany({
-            "decoration:screen_shader": root.weakShaderPath,
-            "debug:damage_tracking": 1,
-        });
-    }
+    function enable() { disable() }
+    function enableWeak() { disable() }
 
     function disable() {
-        HyprlandConfig.resetMany([
-            "decoration:screen_shader",
-            "debug:damage_tracking"
-        ]);
+        HyprlandConfig.setMany({
+            "decoration:screen_shader": "",
+            "debug:damage_tracking": 2
+        });
     }
 
-    function toggle() {
-        if (root.enabled) disable()
-        else enable()
-    }
-
-    function cycle() {
-        if (!enabled) {
-            enableWeak();
-        } else if (weak) {
-            enable();
-        } else {
-            disable();
-        }
-    }
+    function toggle() { disable() }
+    function cycle() { disable() }
     
     HyprlandConfigOption {
         id: confOpt
