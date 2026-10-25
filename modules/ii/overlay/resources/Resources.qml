@@ -3,7 +3,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Hyprland
 import Qt5Compat.GraphicalEffects
 import qs
 import qs.services
@@ -12,6 +11,8 @@ import qs.modules.common.widgets
 import qs.modules.ii.overlay
 
 StyledOverlayWidget {
+    Component.onCompleted: ResourceUsage.consumers++
+    Component.onDestruction: ResourceUsage.consumers--
     id: root
     minimumWidth: 300
     minimumHeight: 200

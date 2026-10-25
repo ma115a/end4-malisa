@@ -16,6 +16,7 @@ Scope {
     property var focusedScreen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name)
 
     property string currentIndicator: "volume"
+    onCurrentIndicatorChanged: GlobalStates.osdIndicatorType = currentIndicator
     property var indicators: [
         {
             id: "volume",
@@ -126,7 +127,7 @@ Scope {
 
             implicitWidth: columnLayout.implicitWidth
             implicitHeight: columnLayout.implicitHeight
-            visible: osdLoader.active
+            visible: osdLoader.active && !GlobalStates.dynamicIslandEnabled
 
             ColumnLayout {
                 id: columnLayout
@@ -218,7 +219,7 @@ Scope {
             GlobalStates.osdVolumeOpen = !GlobalStates.osdVolumeOpen;
         }
     }
-    GlobalShortcut {
+    CompositorGlobalShortcut {
         name: "osdVolumeTrigger"
         description: "Triggers volume OSD on press"
 
@@ -226,7 +227,7 @@ Scope {
             root.triggerOsd();
         }
     }
-    GlobalShortcut {
+    CompositorGlobalShortcut {
         name: "osdVolumeHide"
         description: "Hides volume OSD on press"
 

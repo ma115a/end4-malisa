@@ -6,74 +6,56 @@ import QtQuick.Layouts
 
 MouseArea {
     id: root
+    property color contentColor: Appearance.colors.colOnSecondaryContainer
+    property bool contentColorOverridden: false
     property bool vertical: false
     property bool borderless: Config.options.bar.borderless
-    property bool isMaterial: Config.options.bar.cornerStyle === 3
+    property bool isMaterial: Config.options.bar.cornerStyle === 3 || Config.options.bar.cornerStyle === 4
     readonly property var chargeState: Battery.chargeState
     readonly property bool isCharging: Battery.isCharging
     readonly property bool isPluggedIn: Battery.isPluggedIn
     readonly property real percentage: Battery.percentage
     readonly property bool isLow: Battery.systemAvailable && (percentage <= Config.options.battery.low / 100)
-    readonly property bool showSecondaryBt: Battery.showBluetoothBattery && Battery.systemAvailable
 
-    implicitWidth: vertical
-        ? Appearance.sizes.verticalBarWidth
-        : (38 + (showSecondaryBt ? 38 : 0))
-    implicitHeight: vertical
-        ? (38 + (showSecondaryBt ? 38 : 0))
-        : Appearance.sizes.barHeight
+    implicitWidth: vertical ? Appearance.sizes.verticalBarWidth : layout.implicitWidth + 8
+    implicitHeight: vertical ? layout.implicitHeight + 8 : Appearance.sizes.barHeight
 
     hoverEnabled: !Config.options.bar.tooltips.clickToShow
 
-    Loader {
+    GridLayout {
+        id: layout
         anchors.centerIn: parent
-        sourceComponent: root.vertical ? colLayout : rowLayout
-    }
+        flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
+        rowSpacing: 4
+        columnSpacing: 4
 
-    Component {
-        id: rowLayout
-        RowLayout {
-            spacing: 4
-            anchors.centerIn: parent
+        // Main laptop battery
+        BatteryGlyph {
+            id: glyph
+            visible: Battery.systemAvailable
+            Layout.alignment: Qt.AlignCenter
+            style: Config.options.bar.battery.style
+            percentage: root.percentage
+            isCharging: root.isCharging
+            isLow: root.isLow
+            showPercentage: Config.options.bar.battery.showPercentage
+            showCharging: Config.options.bar.battery.showCharging
+            vertical: root.vertical
+            contentColor: root.contentColor
+        }
 
-            // Main Laptop Battery
-            ClippedProgressBar {
-                id: batteryProgress
-                visible: Battery.systemAvailable
-                value: root.percentage
-                highlightColor: (root.isLow && !root.isCharging) ? Appearance.m3colors.m3error : Appearance.colors.colOnSecondaryContainer
-                Item {
-                    anchors.centerIn: parent
-                    width: batteryProgress.valueBarWidth
-                    height: batteryProgress.valueBarHeight
-                    RowLayout {
-                        spacing: 0
-                        anchors.centerIn: parent
-                        MaterialSymbol {
-                            Layout.alignment: Qt.AlignVCenter
-                            Layout.topMargin: 2
-                            Layout.leftMargin: -2
-                            Layout.rightMargin: -2
-                            fill: 1
-                            text: "bolt"
-                            iconSize: Appearance.font.pixelSize.smaller
-                            visible: root.isCharging && root.percentage < 1
-                        }
-                        StyledText {
-                            Layout.alignment: Qt.AlignVCenter
-                            Layout.topMargin: 2
-                            font: batteryProgress.font
-                            text: batteryProgress.text
-                        }
-                    }
-                }
-            }
+        // Secondary Bluetooth battery
+        Item {
+            visible: Battery.showBluetoothBattery
+            Layout.alignment: Qt.AlignCenter
+            implicitWidth: root.vertical ? btBatteryProgress.implicitHeight : btBatteryProgress.implicitWidth
+            implicitHeight: root.vertical ? btBatteryProgress.implicitWidth : btBatteryProgress.implicitHeight
 
-            // Secondary Bluetooth Battery
             ClippedProgressBar {
                 id: btBatteryProgress
-                visible: Battery.showBluetoothBattery
+                anchors.centerIn: parent
                 value: Battery.bluetoothPercentage
+                rotation: root.vertical ? -90 : 0
                 highlightColor: Appearance.colors.colPrimary
                 showTip: !Battery.systemAvailable
                 Item {
@@ -83,6 +65,7 @@ MouseArea {
                     RowLayout {
                         spacing: 0
                         anchors.centerIn: parent
+                        rotation: root.vertical ? 90 : 0
                         MaterialSymbol {
                             Layout.alignment: Qt.AlignVCenter
                             text: Battery.bluetoothIcon
@@ -93,79 +76,7 @@ MouseArea {
                             Layout.alignment: Qt.AlignVCenter
                             font: btBatteryProgress.font
                             text: btBatteryProgress.text
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Component {
-        id: colLayout
-        ColumnLayout {
-            spacing: 4
-            anchors.centerIn: parent
-
-            // Main Laptop Battery
-            ClippedProgressBar {
-                id: batteryProgressVert
-                visible: Battery.systemAvailable
-                value: root.percentage
-                rotation: -90
-                highlightColor: (root.isLow && !root.isCharging) ? Appearance.m3colors.m3error : Appearance.colors.colOnSecondaryContainer
-                Item {
-                    anchors.centerIn: parent
-                    width: batteryProgressVert.valueBarWidth
-                    height: batteryProgressVert.valueBarHeight
-                    ColumnLayout {
-                        rotation: 90
-                        spacing: -7
-                        anchors.centerIn: parent
-                        MaterialSymbol {
-                            Layout.alignment: Qt.AlignHCenter
-                            fill: 1
-                            text: "bolt"
-                            Layout.topMargin: 4
-                            iconSize: Appearance.font.pixelSize.smaller
-                            visible: root.isCharging && root.percentage < 1
-                        }
-                        StyledText {
-                            Layout.alignment: Qt.AlignHCenter
-                            Layout.topMargin: root.isCharging ? 2 : 4
-                            font: batteryProgressVert.font
-                            text: root.percentage * 100 
-                            visible: root.percentage < 1
-                        }
-                    }
-                }
-            }
-
-            // Secondary Bluetooth Battery
-            ClippedProgressBar {
-                id: btBatteryProgressVert
-                visible: Battery.showBluetoothBattery
-                value: Battery.bluetoothPercentage
-                rotation: -90
-                highlightColor: Appearance.colors.colPrimary
-                showTip: !Battery.systemAvailable
-                Item {
-                    anchors.centerIn: parent
-                    width: btBatteryProgressVert.valueBarWidth
-                    height: btBatteryProgressVert.valueBarHeight
-                    ColumnLayout {
-                        rotation: 90
-                        spacing: -7
-                        anchors.centerIn: parent
-                        MaterialSymbol {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: Battery.bluetoothIcon
-                            iconSize: Appearance.font.pixelSize.smaller
-                            color: Appearance.colors.colOnPrimary
-                        }
-                        StyledText {
-                            Layout.alignment: Qt.AlignHCenter
-                            font: btBatteryProgressVert.font
-                            text: btBatteryProgressVert.text
+                            visible: !root.vertical
                         }
                     }
                 }

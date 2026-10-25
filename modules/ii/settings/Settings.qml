@@ -17,13 +17,18 @@ import qs.modules.common.functions as CF
 Scope {
     id: root
 
+    readonly property real sizeScale: Config.options.settings.style === "minimal" ? 0.75 : 1.0
+    property bool isMinimal: Config.options.settings.style === "minimal"
+
     Component.onCompleted: {
         GlobalStates.settingsOpen = false;
     }
 
+    Dashboard {}
+
     PanelWindow {
         id: panelWindow
-        visible: GlobalStates.settingsOpen
+        visible: GlobalStates.settingsOpen && Config.options.settings.style !== "dashboard"
 
         function hide() {
             GlobalStates.settingsOpen = false;
@@ -54,7 +59,7 @@ Scope {
         Connections {
             target: GlobalFocusGrab
             function onDismissed() {
-                panelWindow.hide();
+                if (panelWindow.visible) panelWindow.hide();
             }
         }
 
@@ -75,12 +80,18 @@ Scope {
 
         Rectangle {
             id: settingsWindow
-            width: Math.min(parent.width - 80, 980)
-            height: Math.min(parent.height - 80, 665)
-            color: Appearance.colors.colLayer0
-            border.width: 1
-            border.color: Appearance.colors.colLayer0Border
-            radius: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 5
+            WindowGlass {
+                anchors.fill: parent
+                glassEnabled: (parent?.color.a ?? 0) > 0
+                cardRadius: parent?.radius ?? 0
+                tint: parent?.color ?? 'transparent'
+            }
+            width: Config.options.settings.style === "minimal" ? Math.min(parent.width - 70, 980 * sizeScale) : Math.min(parent.width - 80, 980 * sizeScale)
+            height: Math.min(parent.height - 80, 665 * sizeScale)
+            color: Appearance.colors.colUiBackground
+            border.width: Config.options.settings.borderSize
+            border.color: CF.ColorUtils.transparentize(Appearance.getColorFromName(Config.options.settings.borderColor), 0.8)
+            radius: !isMinimal ? Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 5 : Appearance.rounding.screenRounding + 5
             z: 1
 
             property bool userMoved: false
@@ -96,11 +107,39 @@ Scope {
                 NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
             }
 
-            Keys.onPressed: (event) => {
-                if (event.key === Qt.Key_Escape) {
-                    panelWindow.hide();
-                }
+            Keys.onTabPressed: (event) => {
+            const count = settingsContent.pages.length;
+            settingsContent.currentPage = (settingsContent.currentPage + 1) % count;
+            settingsContent.showingProfile = false;
+            event.accepted = true;
+        }
+
+        Keys.onBacktabPressed: (event) => {
+            const count = settingsContent.pages.length;
+            settingsContent.currentPage = (settingsContent.currentPage - 1 + count) % count;
+            settingsContent.showingProfile = false;
+            event.accepted = true;
+        }
+
+        Keys.onPressed: (event) => {
+            if (event.key === Qt.Key_Escape) {
+                panelWindow.hide();
+                event.accepted = true;
+                return;
             }
+
+            if (event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
+                const instance = GlobalStates.currentPageInstance;
+                if (instance && instance.contentY !== undefined) {
+                    const step = 60;
+                    const delta = event.key === Qt.Key_Down ? step : -step;
+                    const maxY = Math.max(0, (instance.contentHeight ?? 0) - instance.height);
+                    instance.contentY = Math.max(0, Math.min(maxY, instance.contentY + delta));
+                }
+                event.accepted = true;
+                return;
+            }
+        }
 
             Rectangle {
                 id: dragHandle
@@ -122,6 +161,7 @@ Scope {
             }
 
             SettingsContent {
+                id: settingsContent
                 anchors.fill: parent
             }
         }
@@ -134,7 +174,7 @@ Scope {
         function close(): void  { GlobalStates.settingsOpen = false; }
     }
 
-    GlobalShortcut {
+    CompositorGlobalShortcut {
         name: "settingsToggle"
         description: "Toggles settings panel"
         onPressed: GlobalStates.settingsOpen = !GlobalStates.settingsOpen;

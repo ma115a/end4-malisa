@@ -1,3 +1,4 @@
+
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.services
@@ -6,8 +7,10 @@ import QtQuick.Layouts
 
 BarWidgetSwitcher {
     id: root
+    property color contentColor: Appearance.colors.colOnLayer1
+    property bool contentColorOverridden: false
     property bool borderless: Config.options.bar.borderless
-    property bool showDate: Config.options.bar.verbose
+    property bool showDate: Config.options.time.showDate
     property var today: new Date()
     readonly property string dateTimeString: DateTime.time
     readonly property bool hasAmPm: dateTimeString.toLowerCase().includes("am") || dateTimeString.toLowerCase().includes("pm")
@@ -35,7 +38,7 @@ BarWidgetSwitcher {
                         required property string modelData
                         width: implicitWidth
                         horizontalAlignment: Text.AlignHCenter
-                        font.letterSpacing: -0.2
+                        font.letterSpacing: -0.9
                         font.features: { "tnum": 1 }
                         font.pixelSize: {
                             if (modelData.match(/am|pm/i))
@@ -43,7 +46,7 @@ BarWidgetSwitcher {
                             else
                                 return Appearance.font.pixelSize.large;
                         }
-                        color: Appearance.colors.colOnLayer1
+                        color: root.contentColor
                         text: modelData.padStart(2, "0")
                     }
                 }
@@ -53,7 +56,7 @@ BarWidgetSwitcher {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.bottomMargin: 5
                 font.pixelSize: Appearance.font.pixelSize.smallest
-                color: Appearance.colors.colOnLayer1
+                color: root.contentColor
                 text: DateTime.shortDate
             }
         }
@@ -111,18 +114,18 @@ BarWidgetSwitcher {
             StyledText {
                 visible: root.showDate
                 font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colOnLayer1
+                color: root.contentColor
                 text: DateTime.longDate
             }
             StyledText {
                 visible: root.showDate
                 font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colOnLayer1
+                color: root.contentColor
                 text: "•"
             }
             StyledText {
-                font.pixelSize: Appearance.font.pixelSize.large
-                color: Appearance.colors.colOnLayer1
+                font.pixelSize: Appearance.font.pixelSize.small
+                color: root.contentColor
                 text: DateTime.time
                 font.letterSpacing: -0.4
                 font.features: { "tnum": 1 }
@@ -136,14 +139,13 @@ BarWidgetSwitcher {
             id: pill
 
             property var timeParts: DateTime.time.split(/[: ]/)
-            property string hours: timeParts[0] ?? "00"
-            property string minutes: timeParts[1] ?? "00"
-            property string ampm: timeParts[2] ?? ""
+            property string ampm: timeParts.find(part => /^(am|pm)$/i.test(part)) ?? ""
+            property string time: timeParts.filter(part => !/^(am|pm)$/i.test(part)).join(":")
 
             StyledText {
                 visible: root.showDate
                 font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colOnPrimaryContainer
+                color: Appearance.colors.colOnLayer0
                 text: DateTime.longDate
                 Layout.alignment: Qt.AlignVCenter
                 leftPadding: 5
@@ -161,7 +163,7 @@ BarWidgetSwitcher {
                     font.pixelSize: Appearance.font.pixelSize.smallie
                     color: Appearance.colors.colOnPrimary
                     font.weight: Font.Bold
-                    text: pill.ampm !== "" ? pill.hours.padStart(2, "0") + ":" + pill.minutes.padStart(2, "0") : DateTime.time
+                    text: pill.time
                     font.features: { "tnum": 1 }
                     font.letterSpacing: -0.4
                 }

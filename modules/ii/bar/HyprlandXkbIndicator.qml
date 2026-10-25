@@ -11,6 +11,8 @@ import Quickshell.Hyprland
 
 Loader {
     id: root
+    property color contentColor: Appearance.colors.colOnLayer0
+    property bool contentColorOverridden: false
     property bool vertical: false
     property color color: Appearance.colors.colOnSurfaceVariant
 
@@ -26,9 +28,9 @@ Loader {
             StyledText {
                 id: layoutCodeText
                 horizontalAlignment: Text.AlignHCenter
-                text: HyprlandXkb.currentLayoutCode
+                text: WM.compositor === "niri" ? NiriXkb.currentLayoutCode : HyprlandXkb.currentLayoutCode
                 font.pixelSize: Appearance.font.pixelSize.small
-                color: Appearance.colors.colOnLayer0
+                color: root.contentColor
                 animateChange: true
             }
         }

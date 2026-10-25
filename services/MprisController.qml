@@ -18,7 +18,21 @@ Singleton {
 	id: root;
 	property list<MprisPlayer> players: Mpris.players.values.filter(player => isRealPlayer(player));
 	property MprisPlayer trackedPlayer: null;
-	property MprisPlayer activePlayer: (trackedPlayer && isRealPlayer(trackedPlayer)) ? trackedPlayer : (root.players[0] ?? null);
+
+	readonly property string preferredPlayerName: Config.options.bar.media.preferredPlayer.trim().toLowerCase();
+	readonly property MprisPlayer preferredPlayer: {
+		if (preferredPlayerName.length === 0) return null;
+		const _ = root.players.length;
+		for (const p of root.players) {
+			if ((p.identity ?? "").toLowerCase().includes(preferredPlayerName) ||
+				(p.desktopEntry ?? "").toLowerCase().includes(preferredPlayerName))
+				return p;
+		}
+		return null;
+	}
+
+	property MprisPlayer manualPlayer: null;
+	property MprisPlayer activePlayer: manualPlayer ?? preferredPlayer ?? ((trackedPlayer && isRealPlayer(trackedPlayer)) ? trackedPlayer : (root.players[0] ?? null));
 	signal trackChanged(reverse: bool);
 
 	property bool __reverse: false;
@@ -90,15 +104,12 @@ Singleton {
 		}
 
 		function onTrackArtUrlChanged() {
-			// console.log("arturl:", activePlayer.trackArtUrl)
-			// root.updateTrack();
-			if (root.activePlayer.uniqueId == root.activeTrack.uniqueId && root.activePlayer.trackArtUrl != root.activeTrack.artUrl) {
+			if (root.activePlayer?.uniqueId == root.activeTrack?.uniqueId && root.activePlayer?.trackArtUrl != root.activeTrack?.artUrl) {
 				// cantata likes to send cover updates *BEFORE* updating the track info.
 				// as such, art url changes shouldn't be able to break the reverse animation
 				const r = root.__reverse;
 				root.updateTrack();
 				root.__reverse = r;
-
 			}
 		}
 	}
@@ -173,15 +184,17 @@ Singleton {
 		this.trackedPlayer = targetPlayer;
 	}
 
+	function pauseAll(): void {
+		for (const player of Mpris.players.values) {
+			if (player.canPause) player.pause();
+		}
+		Quickshell.execDetached(["bash", "-c", "playerctl --all-players pause"]);
+	}
+
 	IpcHandler {
 		target: "mpris"
 
-		function pauseAll(): void {
-			for (const player of Mpris.players.values) {
-				if (player.canPause) player.pause();
-			}
-			Quickshell.execDetached(["bash", "-c", "playerctl --all-players pause"]);
-		}
+		function pauseAll(): void { root.pauseAll(); }
 
 		function playPause(): void { root.togglePlaying(); }
 		function previous(): void { root.previous(); }

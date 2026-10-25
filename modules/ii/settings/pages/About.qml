@@ -12,31 +12,18 @@ import qs.modules.common.functions
 ContentPage {
     forceWidth: true
     bottomContentPadding: 35
+    property bool isMinimal: Config.options.settings.style === "minimal"
 
-    function runSystemUpdate() {
-        Quickshell.execDetached([
-            "kitty", "--hold",
-            "fish", "-i", "-l", "-c",
-            "yay -Syu --combinedupgrade=false"
-        ])
-        Qt.callLater(() => GlobalStates.settingsOpen = false)
-    }
+    function runSystemUpdate() { DotsUpdater.runSystemUpdate() }
 
-    function runUpdateDots() {
-        Quickshell.execDetached([
-            "kitty", "--hold",
-            "bash", "-c",
-            "killall qs; sleep 0.5; cd ~/.config/quickshell/ && rm -rf end4-pC && git clone https://github.com/pctrade/end4-pC.git && nohup qs -c end4-pC > /tmp/qs.log 2>&1 &"
-        ])
-        Qt.callLater(() => GlobalStates.settingsOpen = false)
-    }
+    function runUpdateDots() { DotsUpdater.runUpdateDots() }
 
     Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: 156 
-        Layout.topMargin: 35
-        Layout.leftMargin: 16
-        Layout.rightMargin: 16
+        Layout.topMargin: !isMinimal ? 35 : 4
+        Layout.leftMargin: !isMinimal ? 16 : 0
+        Layout.rightMargin: !isMinimal ? 16 : 0
 
         radius: 24
         color: Appearance.colors.colLayer1
@@ -57,8 +44,7 @@ ContentPage {
 
                 IconImage {
                     anchors.centerIn: parent
-                    implicitWidth: 72
-                    implicitHeight: 72
+                    implicitSize: 72
                     source: Quickshell.iconPath(SystemInfo.logo)
                 }
             }
@@ -114,9 +100,7 @@ ContentPage {
                 }
             }
             RowLayout {
-                anchors.bottom: parent.bottom
-                anchors.right: parent.right
-                anchors.margins: 0
+                Layout.alignment: Qt.AlignBottom | Qt.AlignRight
                 spacing: 8
                 RippleButton {
                     buttonText: Translation.tr("Update Dots")
@@ -138,6 +122,7 @@ ContentPage {
 
     ColumnLayout {
         Layout.fillWidth: true
+        Layout.topMargin: !isMinimal ? 0 : -8
         spacing: 8
 
         RowLayout { //This is not in the grid because I was planning to do something else.
@@ -183,6 +168,7 @@ ContentPage {
             }
 
             AboutCard {
+                visible: !isMinimal
                 icon: "terminal"
                 label: "Shell"
                 iconShape: MaterialShape.Shape.Gem
@@ -210,6 +196,7 @@ ContentPage {
             }
 
             AboutCard {
+                visible: !isMinimal
                 icon: "timelapse"
                 label: "Uptime"
                 iconShape: MaterialShape.Shape.Cookie12Sided

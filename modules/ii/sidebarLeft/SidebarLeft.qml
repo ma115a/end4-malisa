@@ -2,6 +2,7 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import QtQuick
 import Quickshell.Io
 import Quickshell
@@ -15,6 +16,9 @@ Scope { // Scope
     property Component contentComponent: SidebarLeftContent {}
     property Item sidebarContent
     readonly property bool centerOnly: Config.options.bar.layouts.leftLayout.length === 0 && Config.options.bar.layouts.rightLayout.length === 0 && !Config.options.bar.vertical
+    readonly property real barCenterOnlyOffset: (Config.options.bar.centerOnlyReserveFrame && root.centerOnly)
+        ? Config.options.bar.frameThickness
+        : Appearance.sizes.barHeight
 
     function toggleDetach() {
         root.detach = !root.detach;
@@ -59,14 +63,56 @@ Scope { // Scope
         else root.pin = !root.pin;
     }
 
+    property bool loaded: false
+
+    function ensureContent() {
+        if (!root.sidebarContent) {
+            root.sidebarContent = contentComponent.createObject(null, {
+                "scopeRoot": root,
+            });
+        }
+        return root.sidebarContent;
+    }
+
+    function load() {
+        unloadTimer.stop();
+        root.loaded = true;
+        if (root.detach) detachedSidebarLoader.active = true;
+        else sidebarLoader.active = true;
+    }
+
+    function unload() {
+        root.loaded = false;
+        if (sidebarLoader.item) GlobalFocusGrab.removeDismissable(sidebarLoader.item);
+        if (root.sidebarContent) {
+            root.sidebarContent.parent = null;
+            root.sidebarContent.destroy();
+            root.sidebarContent = null;
+        }
+        sidebarLoader.active = false;
+        detachedSidebarLoader.active = false;
+    }
+
+    Timer {
+        id: unloadTimer
+        interval: 3000
+        onTriggered: root.unload()
+    }
+
+    Connections {
+        target: GlobalStates
+        function onSidebarLeftOpenChanged() {
+            if (GlobalStates.sidebarLeftOpen) root.load();
+            else unloadTimer.restart();
+        }
+    }
+
     Component.onCompleted: {
-        root.sidebarContent = contentComponent.createObject(null, {
-            "scopeRoot": root,
-        });
-        sidebarLoader.item.contentParent.children = [root.sidebarContent];
+        if (GlobalStates.sidebarLeftOpen) root.load();
     }
 
     onDetachChanged: {
+        if (!root.loaded) return;
         if (root.detach) {
             GlobalFocusGrab.removeDismissable(sidebarLoader.item) // Remove sidebar from the focus grab system
             sidebarContent.parent = null; // Detach content from sidebar
@@ -83,12 +129,38 @@ Scope { // Scope
 
     Loader {
         id: sidebarLoader
-        active: true
-        
+        active: false
+        onLoaded: item.contentParent.children = [root.ensureContent()]
         sourceComponent: PanelWindow { // Window
             id: panelWindow
-            visible: GlobalStates.sidebarLeftOpen
-            
+
+            readonly property bool animatedEntrance: WM.compositor !== "hyprland"
+
+            property bool reallyVisible: false
+            visible: reallyVisible
+
+            Component.onCompleted: reallyVisible = GlobalStates.sidebarLeftOpen
+
+            Connections {
+                target: GlobalStates
+                function onSidebarLeftOpenChanged() {
+                    if (GlobalStates.sidebarLeftOpen) {
+                        closeAnimTimer.stop();
+                        panelWindow.reallyVisible = true;
+                    } else if (panelWindow.animatedEntrance) {
+                        closeAnimTimer.restart();
+                    } else {
+                        panelWindow.reallyVisible = false;
+                    }
+                }
+            }
+
+            Timer {
+                id: closeAnimTimer
+                interval: Appearance.animation.elementMoveExit.duration
+                onTriggered: panelWindow.reallyVisible = false
+            }
+
             property bool extend: false
             property real sidebarWidth: panelWindow.extend ? Appearance.sizes.sidebarWidthExtended : Appearance.sizes.sidebarWidth
             property var contentParent: sidebarLeftBackground
@@ -113,19 +185,37 @@ Scope { // Scope
 
             margins {
                 top: {
+                    if (Config.options.bar.bottom) return 0;
+                    if (Config?.options.bar.autoHide.enable) return 0;
                     if (!centerOnly) return 0;
                     switch (Config.options.bar.cornerStyle) {
-                        case 0: return -Appearance.sizes.barHeight;
-                        case 1: return -Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut;
-                        case 2: return -Appearance.sizes.barHeight + Appearance.sizes.hyprlandGapsOut;
-                        case 3: return -Appearance.sizes.barHeight - Appearance.sizes.hyprlandGapsOut;
-                        default: return 0;
+                    case 0:
+                    case 4:
+                    case 6: return -root.barCenterOnlyOffset;
+                    case 1: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
+                    case 2: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
+                    case 3: return -root.barCenterOnlyOffset - Appearance.sizes.hyprlandGapsOut;
+                    default: return 0;
+                    }
+                }
+                bottom: {
+                    if (!Config.options.bar.bottom) return 0;
+                    if (Config?.options.bar.autoHide.enable) return 0;
+                    if (!centerOnly) return 0;
+                    switch (Config.options.bar.cornerStyle) {
+                    case 0:
+                    case 4:
+                    case 6: return -root.barCenterOnlyOffset;
+                    case 1: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
+                    case 2: return -root.barCenterOnlyOffset + Appearance.sizes.hyprlandGapsOut;
+                    case 3: return -root.barCenterOnlyOffset - Appearance.sizes.hyprlandGapsOut;
+                    default: return 0;
                     }
                 }
             }
 
             mask: Region {
-                item: sidebarLeftBackground
+                item: panelWindow.animatedEntrance ? fullMaskArea : sidebarLeftBackground
             }
 
             onVisibleChanged: {
@@ -143,25 +233,66 @@ Scope { // Scope
             }
 
             // Content
+            Item {
+                id: fullMaskArea
+                anchors.fill: parent
+            }
+
+            MouseArea {
+                id: outsideClickArea
+                anchors.fill: parent
+                enabled: panelWindow.animatedEntrance
+                visible: panelWindow.animatedEntrance
+                onClicked: panelWindow.hide()
+            }
+
             StyledRectangularShadow {
                 target: sidebarLeftBackground
                 radius: sidebarLeftBackground.radius
             }
+            WindowGlass {
+                anchors.fill: sidebarLeftBackground
+                cardRadius: sidebarLeftBackground.radius
+                tint: Appearance.colors.colUiBackground
+            }
+
             Rectangle {
                 id: sidebarLeftBackground
                 anchors.top: parent.top
-                anchors.left: parent.left
                 anchors.topMargin: Appearance.sizes.hyprlandGapsOut
-                anchors.leftMargin: Appearance.sizes.hyprlandGapsOut
                 width: panelWindow.sidebarWidth - Appearance.sizes.hyprlandGapsOut - Appearance.sizes.elevationMargin
                 height: parent.height - Appearance.sizes.hyprlandGapsOut * 2
-                color: Appearance.colors.colLayer0
+                color: Config.options.background.widgets.glass.enable ? "transparent" : Appearance.colors.colUiBackground
                 border.width: 1
-                border.color: Appearance.colors.colLayer0Border
+                border.color: ColorUtils.transparentize(Appearance.colors.colLayer0Border, 0.8) 
                 radius: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 1
+
+                readonly property bool animatedEntrance: panelWindow.animatedEntrance
+                readonly property bool sidebarOpen: GlobalStates.sidebarLeftOpen
+                x: Appearance.sizes.hyprlandGapsOut - (animatedEntrance && !sidebarOpen ? width : 0)
+
+                Behavior on x {
+                    enabled: sidebarLeftBackground.animatedEntrance
+                    NumberAnimation {
+                        duration: sidebarLeftBackground.sidebarOpen
+                            ? Appearance.animation.elementMoveEnter.duration
+                            : Appearance.animation.elementMoveExit.duration
+                        easing.type: sidebarLeftBackground.sidebarOpen
+                            ? Appearance.animation.elementMoveEnter.type
+                            : Appearance.animation.elementMoveExit.type
+                        easing.bezierCurve: sidebarLeftBackground.sidebarOpen
+                            ? Appearance.animation.elementMoveEnter.bezierCurve
+                            : Appearance.animation.elementMoveExit.bezierCurve
+                    }
+                }
 
                 Behavior on width {
                     animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: (mouse) => { mouse.accepted = true }
                 }
 
                 Keys.onPressed: (event) => {
@@ -186,9 +317,11 @@ Scope { // Scope
     Loader {
         id: detachedSidebarLoader
         active: false
+        onLoaded: item.contentParent.children = [root.ensureContent()]
 
         sourceComponent: FloatingWindow {
             id: detachedSidebarRoot
+            title: "illogical-impulse Sidebar"
             property var contentParent: detachedSidebarBackground
             color: "transparent"
 
@@ -197,10 +330,16 @@ Scope { // Scope
                 if (!visible) GlobalStates.sidebarLeftOpen = false;
             }
             
+            WindowGlass {
+                anchors.fill: detachedSidebarBackground
+                cardRadius: detachedSidebarBackground.radius
+                tint: Appearance.colors.colUiBackground
+            }
+
             Rectangle {
                 id: detachedSidebarBackground
                 anchors.fill: parent
-                color: Appearance.colors.colLayer0
+                color: Config.options.background.widgets.glass.enable ? "transparent" : Appearance.colors.colUiBackground
 
                 Keys.onPressed: (event) => {
                     if (event.modifiers === Qt.ControlModifier) {
@@ -230,7 +369,7 @@ Scope { // Scope
         }
     }
 
-    GlobalShortcut {
+    CompositorGlobalShortcut {
         name: "sidebarLeftToggle"
         description: "Toggles left sidebar on press"
 
@@ -239,7 +378,7 @@ Scope { // Scope
         }
     }
 
-    GlobalShortcut {
+    CompositorGlobalShortcut {
         name: "sidebarLeftOpen"
         description: "Opens left sidebar on press"
 
@@ -248,7 +387,7 @@ Scope { // Scope
         }
     }
 
-    GlobalShortcut {
+    CompositorGlobalShortcut {
         name: "sidebarLeftClose"
         description: "Closes left sidebar on press"
 
@@ -257,7 +396,7 @@ Scope { // Scope
         }
     }
 
-    GlobalShortcut {
+    CompositorGlobalShortcut {
         name: "sidebarLeftToggleDetach"
         description: "Detach left sidebar into a window/Attach it back"
 

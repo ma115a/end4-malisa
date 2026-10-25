@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -8,38 +9,605 @@ ContentPage {
     id: page
     forceWidth: true
 
-    function goTo(term) {
-        const t = term.toLowerCase().trim()
-
-        function findTarget(rootItem) {
-            for (let i = 0; i < rootItem.children.length; i++) {
-                let child = rootItem.children[i]
-                if (child.title && child.title.toLowerCase().includes(t)) {
-                    return child
-                }
-            }
-
-            for (let i = 0; i < rootItem.children.length; i++) {
-                let found = findTarget(rootItem.children[i])
-                if (found) return found
-            }
-            return null
-        }
-
-        let target = findTarget(mainLayout)
-        if (target) {
-            let pos = target.mapToItem(mainLayout, 0, 0)
-            page.contentY = Math.max(0, pos.y - 0)
-        }
-    }
-
     ColumnLayout {
         id: mainLayout 
         Layout.fillWidth: true   
         Layout.fillHeight: true
         spacing: 20
+
+        ContentSection {
+            icon: "palette"
+            shape: MaterialShape.Shape.Cookie9Sided
+            title: Translation.tr("Color Schemes")
+
+            GroupedList {
+                ConfigComboBox {
+                    Layout.fillWidth: true
+                    buttonIcon: "format_paint"
+                    text: Translation.tr("Color scheme")
+                    description: Translation.tr("Material follows your wallpaper")
+                    fieldWidth: 220
+                    fixedWidth: true
+                    model: ColorSchemes.schemeOptions()
+                    currentValue: ColorSchemes.current
+                    onSelected: newValue => ColorSchemes.setScheme(newValue)
+                }
+                RowLayout {
+                    enabled: ColorSchemes.currentData !== null
+                    opacity: enabled ? 1 : 0.55
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    Layout.rightMargin: 8
+                    spacing: 10
+                    MaterialSymbol {
+                        text: "brush"
+                        iconSize: Appearance.font.pixelSize.normal + 5
+                        color: Appearance.colors.colOnLayer0
+                    }
+                    StyledText {
+                        text: Translation.tr("Accent")
+                        color: Appearance.colors.colOnLayer0
+                    }
+                    Item { Layout.fillWidth: true }
+                    CustomColorSelectionArray {
+                        spacing: 4
+                        swatchSize: 36
+                        options: ColorSchemes.accentOptions()
+                        currentValue: ColorSchemes.currentAccent("primary")
+                        onSelected: newValue => ColorSchemes.setAccent("primary", newValue)
+                    }
+                }
+                RowLayout {
+                    enabled: ColorSchemes.currentData !== null
+                    opacity: enabled ? 1 : 0.55
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    Layout.rightMargin: 8
+                    spacing: 10
+                    MaterialSymbol {
+                        text: "colors"
+                        iconSize: Appearance.font.pixelSize.normal + 5
+                        color: Appearance.colors.colOnLayer0
+                    }
+                    StyledText {
+                        text: Translation.tr("Secondary")
+                        color: Appearance.colors.colOnLayer0
+                    }
+                    Item { Layout.fillWidth: true }
+                    CustomColorSelectionArray {
+                        spacing: 4
+                        swatchSize: 36
+                        options: ColorSchemes.accentOptions()
+                        currentValue: ColorSchemes.currentAccent("secondary")
+                        onSelected: newValue => ColorSchemes.setAccent("secondary", newValue)
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 8
+                    Layout.rightMargin: 8
+                    spacing: 8
+                    RippleButtonWithIcon {
+                        Layout.fillWidth: true
+                        materialIcon: "add"
+                        mainText: Translation.tr("Add scheme")
+                        onClicked: ColorSchemes.addScheme()
+                        colBackground: Appearance.colors.colSecondaryContainer
+                        colBackgroundHover: Appearance.colors.colSecondaryContainerHover
+                        colRipple: Appearance.colors.colSecondaryContainerActive
+                    }
+                    RippleButtonWithIcon {
+                        Layout.fillWidth: true
+                        materialIcon: "folder_open"
+                        mainText: Translation.tr("Open folder")
+                        onClicked: ColorSchemes.openFolder()
+                        colBackground: Appearance.colors.colSecondaryContainer
+                        colBackgroundHover: Appearance.colors.colSecondaryContainerHover
+                        colRipple: Appearance.colors.colSecondaryContainerActive
+                    }
+                    RippleButtonWithIcon {
+                        Layout.fillWidth: true
+                        materialIcon: "refresh"
+                        mainText: Translation.tr("Reload")
+                        onClicked: ColorSchemes.reload()
+                        colBackground: Appearance.colors.colSecondaryContainer
+                        colBackgroundHover: Appearance.colors.colSecondaryContainerHover
+                        colRipple: Appearance.colors.colSecondaryContainerActive
+                    }
+                }
+            }
+        }
+
+        ContentSection {
+            icon: "motion_mode"
+            shape: MaterialShape.Shape.Cookie6Sided
+            title: Translation.tr("Transparency")
+            GroupedList {
+                ConfigSwitch {
+                    buttonIcon: "check"
+                    text: Translation.tr("Enable")
+                    checked: Config.options.appearance.transparency.enable
+                    onCheckedChanged: { Config.options.appearance.transparency.enable = checked }
+                }
+                ConfigSwitch {
+                    buttonIcon: "auto_awesome"
+                    text: Translation.tr("Automatic (from wallpaper)")
+                    checked: Config.options.appearance.transparency.automatic
+                    enabled: Config.options.appearance.transparency.enable
+                    onCheckedChanged: { Config.options.appearance.transparency.automatic = checked }
+                }
+                ConfigSlider {
+                    buttonIcon: "layers"
+                    text: Translation.tr("Background")
+                    enabled: Config.options.appearance.transparency.enable
+                            && !Config.options.appearance.transparency.automatic
+                    from: 0; to: 0.6
+                    stopIndicatorValues: [0.11]
+                    value: Config.options.appearance.transparency.backgroundTransparency
+                    onValueChanged: {
+                        Config.options.appearance.transparency.backgroundTransparency = value
+                    }
+                }
+                ConfigSlider {
+                    buttonIcon: "opacity"
+                    text: Translation.tr("Content")
+                    enabled: Config.options.appearance.transparency.enable
+                            && !Config.options.appearance.transparency.automatic
+                    from: 0; to: 1
+                    stopIndicatorValues: [0.57]
+                    value: Config.options.appearance.transparency.contentTransparency 
+                    onValueChanged: {
+                        Config.options.appearance.transparency.contentTransparency = value  
+                    }
+                }
+            }
+        }
+
+        ContentSection {
+            icon: "settings"
+            shape: MaterialShape.Shape.SoftBurst
+            title: Translation.tr("Settings Panel")
+            GroupedList {
+                ConfigSelectionArray {
+                    text: Translation.tr("Style")
+                    icon: "style"
+                    currentValue: Config.options.settings.style
+                    onSelected: newValue => { Config.options.settings.style = newValue }
+                    options: [
+                        { displayName: Translation.tr("Default"), icon: "settings_panorama", value: "default" },
+                        { displayName: Translation.tr("Minimal"), icon: "settings_heart", value: "minimal" },
+                        { displayName: Translation.tr("Dashboard"), icon: "dashboard", value: "dashboard" }
+                    ]
+                }
+                ConfigSelectionArray {
+                    enabled: Config.options.settings.style === "dashboard"
+                    text: Translation.tr("Dashboard animation speed")
+                    icon: "speed"
+                    currentValue: Config.options.settings.animationSpeed
+                    onSelected: newValue => { Config.options.settings.animationSpeed = newValue }
+                    options: [
+                        { displayName: "1x", icon: "slow_motion_video", value: 1 },
+                        { displayName: "1.5x", icon: "play_arrow", value: 1.5 },
+                        { displayName: "2x", icon: "fast_forward", value: 2 },
+                        { displayName: "3x", icon: "bolt", value: 3 }
+                    ]
+                }
+                ConfigSpinBox {
+                    icon: "border_style"
+                    text: Translation.tr("Border width")
+                    value: Config.options.settings.borderSize
+                    from: 0
+                    to: 10
+                    stepSize: 1
+                    onValueChanged: { Config.options.settings.borderSize = value }
+                }
+                ColorSelectionArray {
+                    icon: "format_paint"
+                    text: Translation.tr("Border Color")
+                    options: ["primary", "secondary", "tertiary", "primaryContainer", "secondaryContainer", "tertiaryContainer", "layer0Border"]
+                    currentValue: Config.options.settings.borderColor 
+                    onSelected: newValue => {
+                        Config.options.settings.borderColor = newValue
+                    }
+                }
+            } 
+        }
+
+        ContentSection {
+            icon: "splitscreen_left"
+            shape: MaterialShape.Shape.Clover4Leaf
+            title: Translation.tr("Left Sidebar")
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    implicitHeight: mediaCol.implicitHeight + 24
+                    radius: Appearance.rounding.normal
+                    color: Appearance.colors.colLayer1
+                    border.width: 1
+                    border.color: "transparent"
+
+                    ColumnLayout {
+                        id: mediaCol
+                        anchors { fill: parent; margins: 12 }
+                        spacing: 8
+
+                        MaterialSymbol {
+                            text: "music_note_2"
+                            iconSize: Appearance.font.pixelSize.huge
+                            color: Appearance.colors.colPrimary
+                        }
+                        StyledText {
+                            text: Translation.tr("Media Player")
+                            font.pixelSize: Appearance.font.pixelSize.normal
+                            font.weight: Font.Medium
+                            color: Appearance.colors.colOnLayer1
+                        }
+                        Item { Layout.fillHeight: true }
+                        GroupedList {
+                            Layout.fillWidth: true
+                            bgcolor: Appearance.colors.colLayer2
+                            ConfigSwitch {
+                                buttonIcon: "check"
+                                text: Translation.tr("Enable")
+                                checked: Config.options.sidebar.media.enable
+                                onCheckedChanged: { Config.options.sidebar.media.enable = checked }
+                            }
+                            ConfigSwitch {
+                                buttonIcon: "radio_button_partial"
+                                text: Translation.tr("Follow Album Colors")
+                                checked: Config.options.sidebar.media.artColors
+                                onCheckedChanged: { Config.options.sidebar.media.artColors = checked }
+                            }
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: aiCol.implicitHeight + 24
+                        radius: Appearance.rounding.normal
+                        color: Appearance.colors.colLayer1
+                        border.width: 1
+                        border.color: "transparent"
+
+                        ColumnLayout {
+                            id: aiCol
+                            anchors { fill: parent; margins: 12 }
+                            spacing: 8
+
+                            MaterialSymbol {
+                                text: "smart_toy"
+                                iconSize: Appearance.font.pixelSize.huge
+                                color: Appearance.colors.colPrimary
+                            }
+                            StyledText {
+                                text: Translation.tr("AI")
+                                font.pixelSize: Appearance.font.pixelSize.normal
+                                font.weight: Font.Medium
+                                color: Appearance.colors.colOnLayer1
+                            }
+                            ConfigSelectionArray {
+                                Layout.fillWidth: false
+                                Layout.alignment: Qt.AlignRight
+                                currentValue: Config.options.policies.ai
+                                onSelected: newValue => { Config.options.policies.ai = newValue }
+                                options: [
+                                    { displayName: Translation.tr("No"), icon: "close", value: 0 },
+                                    { displayName: Translation.tr("Yes"), icon: "check", value: 1 },
+                                    { displayName: Translation.tr("Local"), icon: "sync_saved_locally", value: 2 }
+                                ]
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: weebCol.implicitHeight + 24
+                        radius: Appearance.rounding.normal
+                        color: Appearance.colors.colLayer1
+                        border.width: 1
+                        border.color: "transparent"
+
+                        ColumnLayout {
+                            id: weebCol
+                            anchors { fill: parent; margins: 12 }
+                            spacing: 8
+
+                            MaterialSymbol {
+                                text: "playing_cards"
+                                iconSize: Appearance.font.pixelSize.huge
+                                color: Appearance.colors.colPrimary
+                            }
+                            StyledText {
+                                text: Translation.tr("Weeb")
+                                font.pixelSize: Appearance.font.pixelSize.normal
+                                font.weight: Font.Medium
+                                color: Appearance.colors.colOnLayer1
+                            }
+                            ConfigSelectionArray {
+                                Layout.fillWidth: false
+                                Layout.alignment: Qt.AlignRight
+                                currentValue: Config.options.policies.weeb
+                                onSelected: newValue => { Config.options.policies.weeb = newValue }
+                                options: [
+                                    { displayName: Translation.tr("No"), icon: "close", value: 0 },
+                                    { displayName: Translation.tr("Yes"), icon: "check", value: 1 },
+                                    { displayName: Translation.tr("Closet"), icon: "ev_shadow", value: 2 }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: 4
+                implicitHeight: translatorCol.implicitHeight + 24
+                radius: Appearance.rounding.normal
+                color: Appearance.colors.colLayer1
+                border.width: 1
+                border.color: "transparent"
+
+                ColumnLayout {
+                    id: translatorCol
+                    anchors { fill: parent; margins: 12 }
+                    spacing: 8
+
+                    RowLayout {
+                        spacing: 8
+                        ConfigSwitch {
+                            buttonIcon: "translate"
+                            text: Translation.tr("Enable Translator")
+                            checked: Config.options.sidebar.translator.enable
+                            onCheckedChanged: { Config.options.sidebar.translator.enable = checked }
+                        }
+                        ConfigSwitch {
+                            buttonIcon: "sports_soccer"
+                            text: Translation.tr("Football")
+                            checked: Config.options.sidebar.football.enable
+                            onCheckedChanged: { Config.options.sidebar.football.enable = checked }
+                        }
+                    }
+                }
+            }
+        }
+
+        ContentSection {
+            icon: "splitscreen_right"
+            shape: MaterialShape.Shape.Slanted
+            title: Translation.tr("Right Sidebar")
+
+            GroupedList {
+                ConfigSwitch {
+                    buttonIcon: "planner_banner_ad_pt"
+                    text: Translation.tr('Banner')
+                    checked: Config.options.sidebar.banner
+                    onCheckedChanged: {
+                        Config.options.sidebar.banner = checked;
+                    }
+                }
+
+                ConfigSwitch {
+                    buttonIcon: "bottom_navigation"
+                    text: Translation.tr('Bottom Group')
+                    checked: Config.options.sidebar.bottomGroup
+                    onCheckedChanged: {
+                        Config.options.sidebar.bottomGroup = checked;
+                    }
+                }
+
+                ConfigSwitch {
+                    buttonIcon: "music_note"
+                    text: Translation.tr('Media Player')
+                    checked: Config.options.sidebar.mediaPlayer
+                    onCheckedChanged: {
+                        Config.options.sidebar.mediaPlayer = checked;
+                    }
+                }
+
+                ConfigSwitch {
+                    buttonIcon: "memory"
+                    text: Translation.tr('Keep right sidebar loaded')
+                    checked: Config.options.sidebar.keepRightSidebarLoaded
+                    onCheckedChanged: {
+                        Config.options.sidebar.keepRightSidebarLoaded = checked;
+                    }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Quick toggles")
+                GroupedList {
+                    ConfigSelectionArray {
+                        text: Translation.tr("Style")
+                        icon: "toggle_on"
+                        Layout.fillWidth: false
+                        currentValue: Config.options.sidebar.quickToggles.style
+                        onSelected: newValue => {
+                            Config.options.sidebar.quickToggles.style = newValue;
+                        }
+                        options: [
+                            {
+                                displayName: Translation.tr("Classic"),
+                                icon: "password_2",
+                                value: "classic"
+                            },
+                            {
+                                displayName: Translation.tr("Android"),
+                                icon: "action_key",
+                                value: "android"
+                            }
+                        ]
+                    }
+                    ConfigSpinBox {
+                        enabled: Config.options.sidebar.quickToggles.style === "android"
+                        icon: "add_column_left"
+                        text: Translation.tr("Columns")
+                        value: Config.options.sidebar.quickToggles.android.columns
+                        from: 1
+                        to: 8
+                        stepSize: 1
+                        onValueChanged: {
+                            Config.options.sidebar.quickToggles.android.columns = value;
+                        }
+                    }
+                }
+            }
+
+            ContentSubsection {
+                title: Translation.tr("Sliders")
+                GroupedList {
+                    ConfigSwitch {
+                        buttonIcon: "check"
+                        text: Translation.tr("Enable")
+                        checked: Config.options.sidebar.quickSliders.enable
+                        onCheckedChanged: {
+                            Config.options.sidebar.quickSliders.enable = checked;
+                        }
+                    }
+
+                    ConfigSwitch {
+                        buttonIcon: "brightness_6"
+                        text: Translation.tr("Brightness")
+                        enabled: Config.options.sidebar.quickSliders.enable
+                        checked: Config.options.sidebar.quickSliders.showBrightness
+                        onCheckedChanged: {
+                            Config.options.sidebar.quickSliders.showBrightness = checked;
+                        }
+                    }
+
+                    ConfigSwitch {
+                        buttonIcon: "volume_up"
+                        text: Translation.tr("Volume")
+                        enabled: Config.options.sidebar.quickSliders.enable
+                        checked: Config.options.sidebar.quickSliders.showVolume
+                        onCheckedChanged: {
+                            Config.options.sidebar.quickSliders.showVolume = checked;
+                        }
+                    }
+
+                    ConfigSwitch {
+                        buttonIcon: "mic"
+                        text: Translation.tr("Microphone")
+                        enabled: Config.options.sidebar.quickSliders.enable
+                        checked: Config.options.sidebar.quickSliders.showMic
+                        onCheckedChanged: {
+                            Config.options.sidebar.quickSliders.showMic = checked;
+                        }
+                    }
+                }
+            }
+        }
+
+        ContentSection {
+            icon: "screenshot_frame_2"
+            shape: MaterialShape.Shape.Gem
+            title: Translation.tr("Hot Corners")
+
+            ContentSubsection {
+                title: Translation.tr("Top")
+
+                GroupedList {
+                    ConfigSwitch {
+                        buttonIcon: "check"
+                        text: Translation.tr("Enable")
+                        checked: Config.options.sidebar.cornerOpen.enable
+                        onCheckedChanged: { Config.options.sidebar.cornerOpen.enable = checked }
+                    }
+                    ConfigSwitch {
+                        buttonIcon: "highlight_mouse_cursor"
+                        text: Translation.tr("Hover to trigger")
+                        checked: Config.options.sidebar.cornerOpen.clickless
+                        onCheckedChanged: { Config.options.sidebar.cornerOpen.clickless = checked }
+                    }
+                    ConfigSwitch {
+                        buttonIcon: "vertical_align_bottom"
+                        text: Translation.tr("Place at bottom")
+                        checked: Config.options.sidebar.cornerOpen.bottom
+                        onCheckedChanged: { Config.options.sidebar.cornerOpen.bottom = checked }
+                    }
+                    ConfigSwitch {
+                        buttonIcon: "unfold_more_double"
+                        text: Translation.tr("Value scroll")
+                        checked: Config.options.sidebar.cornerOpen.valueScroll
+                        onCheckedChanged: { Config.options.sidebar.cornerOpen.valueScroll = checked }
+                    }
+                    ConfigSwitch {
+                        buttonIcon: "visibility"
+                        text: Translation.tr("Visualize region")
+                        checked: Config.options.sidebar.cornerOpen.visualize
+                        onCheckedChanged: { Config.options.sidebar.cornerOpen.visualize = checked }
+                    }
+                    ConfigSwitch {
+                        enabled: Config.options.sidebar.cornerOpen.clickless
+                        buttonIcon: "ads_click"
+                        text: Translation.tr("Force hover at absolute corner")
+                        checked: Config.options.sidebar.cornerOpen.clicklessCornerEnd
+                        onCheckedChanged: { Config.options.sidebar.cornerOpen.clicklessCornerEnd = checked }
+                    }
+                    ConfigSpinBox {
+                        enabled: Config.options.sidebar.cornerOpen.clickless
+                        icon: "arrow_cool_down"
+                        text: Translation.tr("Vertical offset")
+                        value: Config.options.sidebar.cornerOpen.clicklessCornerVerticalOffset
+                        from: 0; to: 20; stepSize: 1
+                        onValueChanged: { Config.options.sidebar.cornerOpen.clicklessCornerVerticalOffset = value }
+                    }
+                    ConfigSpinBox {
+                        icon: "arrow_range"
+                        text: Translation.tr("Region width")
+                        value: Config.options.sidebar.cornerOpen.cornerRegionWidth
+                        from: 1; to: 3000; stepSize: 1
+                        onValueChanged: { Config.options.sidebar.cornerOpen.cornerRegionWidth = value }
+                    }
+                    ConfigSpinBox {
+                        icon: "height"
+                        text: Translation.tr("Region height")
+                        value: Config.options.sidebar.cornerOpen.cornerRegionHeight
+                        from: 1; to: 3000; stepSize: 1
+                        onValueChanged: { Config.options.sidebar.cornerOpen.cornerRegionHeight = value }
+                    }
+                }
+            }
+            ContentSubsection {
+                title: Translation.tr("Bottom")
+                GroupedList {
+                    ConfigComboBox {
+                        Layout.fillWidth: true
+                        buttonIcon: "position_bottom_left"
+                        text: Translation.tr("Bottom-left")
+                        textRole: "displayName"
+                        fieldWidth: 50
+                        model: GlobalStates.hotCornerOptions
+                        currentValue: Config.options.sidebar.cornerOpen.bottomLeftAction
+                        onSelected: newValue => { Config.options.sidebar.cornerOpen.bottomLeftAction = newValue }
+                    }
+                    ConfigComboBox {
+                        Layout.fillWidth: true
+                        buttonIcon: "position_bottom_right"
+                        text: Translation.tr("Bottom-right")
+                        textRole: "displayName"
+                        fieldWidth: 55
+                        model: GlobalStates.hotCornerOptions
+                        currentValue: Config.options.sidebar.cornerOpen.bottomRightAction
+                        onSelected: newValue => { Config.options.sidebar.cornerOpen.bottomRightAction = newValue }
+                    }
+                }
+            }
+        }
     
         ContentSection { // I see that for many the overview is important, I put it first why not
+            visible: WM.compositor !== "niri"
             icon: "overview_key"
             shape: MaterialShape.Shape.Gem
             title: Translation.tr("Overview")
@@ -207,6 +775,127 @@ ContentPage {
                 }
             }
 
+            ContentSubsection {
+                title: Translation.tr("Appearance")
+                GroupedList {
+                    ConfigSelectionArray {
+                        text: Translation.tr("Style")
+                        icon: "dock_to_bottom"
+                        currentValue: Config.options.dock.style
+                        onSelected: newValue => { Config.options.dock.style = newValue }
+                        options: [
+                            { displayName: Translation.tr("Float"), icon: "call_to_action", value: "float" },
+                            { displayName: Translation.tr("Hug"), icon: "dock_to_bottom", value: "hug" }
+                        ]
+                    }
+                    ConfigSwitch {
+                        buttonIcon: "zoom_in"
+                        text: Translation.tr("Magnification")
+                        checked: Config.options.dock.magnify
+                        onCheckedChanged: { Config.options.dock.magnify = checked }
+                    }
+                    ConfigSpinBox {
+                        visible: Config.options.dock.magnify
+                        icon: "zoom_out_map"
+                        text: Translation.tr("Magnification amount (%)")
+                        value: Config.options.dock.magnification * 100
+                        from: 110
+                        to: 220
+                        stepSize: 10
+                        onValueChanged: { Config.options.dock.magnification = value / 100 }
+                    }
+                    ConfigSelectionArray {
+                        text: Translation.tr("Position")
+                        icon: "dock_to_bottom"
+                        currentValue: Config.options.dock.position
+                        onSelected: newValue => { Config.options.dock.position = newValue }
+                        options: [
+                            { displayName: Translation.tr("Left"), icon: "dock_to_left", value: "left" },
+                            { displayName: Translation.tr("Bottom"), icon: "dock_to_bottom", value: "bottom" },
+                            { displayName: Translation.tr("Right"), icon: "dock_to_right", value: "right" }
+                        ]
+                    }
+                    ConfigSpinBox {
+                        icon: "rounded_corner"
+                        text: Translation.tr("Corner radius")
+                        value: Config.options.dock.radius
+                        from: 0
+                        to: 40
+                        stepSize: 1
+                        onValueChanged: { Config.options.dock.radius = value }
+                    }
+                    ColorSelectionArray {
+                        icon: "format_paint"
+                        text: Translation.tr("Background color")
+                        options: ["layer0", "layer1", "primaryContainer", "secondaryContainer", "tertiaryContainer", "primary", "secondary", "tertiary"]
+                        currentValue: Config.options.dock.backgroundColor
+                        onSelected: newValue => { Config.options.dock.backgroundColor = newValue }
+                    }
+                    ConfigSwitch {
+                        enabled: Config.options.dock.style === "hug"
+                        buttonIcon: "filter_frames"
+                        text: Translation.tr("Follow frame color")
+                        checked: Config.options.dock.followFrameColor
+                        onCheckedChanged: { Config.options.dock.followFrameColor = checked }
+                    }
+                    ConfigSwitch {
+                        enabled: Config.options.dock.style !== "hug"
+                        buttonIcon: "border_style"
+                        text: Translation.tr("Border")
+                        checked: Config.options.dock.showBorder
+                        onCheckedChanged: { Config.options.dock.showBorder = checked }
+                    }
+                    ConfigSpinBox {
+                        enabled: Config.options.dock.showBorder && Config.options.dock.style !== "hug"
+                        icon: "line_weight"
+                        text: Translation.tr("Border width")
+                        value: Config.options.dock.borderWidth
+                        from: 1
+                        to: 10
+                        stepSize: 1
+                        onValueChanged: { Config.options.dock.borderWidth = value }
+                    }
+                    ColorSelectionArray {
+                        enabled: Config.options.dock.showBorder && Config.options.dock.style !== "hug"
+                        icon: "format_paint"
+                        text: Translation.tr("Border color")
+                        options: ["layer0Border", "primary", "secondary", "tertiary", "primaryContainer", "secondaryContainer", "tertiaryContainer", "layer1"]
+                        currentValue: Config.options.dock.borderColor
+                        onSelected: newValue => { Config.options.dock.borderColor = newValue }
+                    }
+                }
+            }
+
+
+            ContentSubsection {
+                title: Translation.tr("Icons")
+                GroupedList {
+                    ConfigSwitch {
+                        buttonIcon: "preview"
+                        text: Translation.tr("Window previews")
+                        checked: Config.options.dock.showPreviews
+                        onCheckedChanged: { Config.options.dock.showPreviews = checked }
+                    }
+                    ConfigSpinBox {
+                        icon: "photo_size_select_large"
+                        text: Translation.tr("Icon size")
+                        value: Config.options.dock.iconSize
+                        from: 20
+                        to: 48
+                        stepSize: 1
+                        onValueChanged: { Config.options.dock.iconSize = value }
+                    }
+                    ConfigSpinBox {
+                        icon: "space_bar"
+                        text: Translation.tr("Icon spacing")
+                        value: Config.options.dock.iconSpacing
+                        from: 0
+                        to: 12
+                        stepSize: 1
+                        onValueChanged: { Config.options.dock.iconSpacing = value }
+                    }
+                }
+            }
 
             ContentSubsection {
                 title: Translation.tr("Buttons & Media")
@@ -259,6 +948,7 @@ ContentPage {
                 }
                 ConfigSwitch {
                     buttonIcon: "widgets"
+                    enabled: WM.compositor !== "niri"
                     text: Translation.tr("Show Widgets")
                     checked: Config.options.lock.showWidgets
                     onCheckedChanged: { Config.options.lock.showWidgets = checked }
@@ -706,144 +1396,82 @@ ContentPage {
             title: Translation.tr("Fonts")
 
             GroupedList {
-                ConfigTextArea {
-                    id: mainFontField
+                ConfigComboBox {
                     Layout.fillWidth: true
                     buttonIcon: "font_download"
-                    text: Translation.tr("Font family name (e.g., Google Sans Flex)")
-                    value: Config.options.appearance.fonts.main
-                    onValueChanged: {
-                        mainFontDebounceTimer.restart();
-                    }
-
-                    Timer {
-                        id: mainFontDebounceTimer
-                        interval: 1000
-                        running: false
-                        onTriggered: {
-                            Config.options.appearance.fonts.main = mainFontField.value;
-                        }
-                    }
+                    text: Translation.tr("Main font")
+                    fieldWidth: 260
+                    fixedWidth: true
+                    searchable: true
+                    model: SystemAppearance.fontOptions(Config.options.appearance.fonts.main)
+                    currentValue: Config.options.appearance.fonts.main
+                    onSelected: newValue => { Config.options.appearance.fonts.main = newValue }
                 }
-
-                ConfigTextArea {
-                    id: numbersFontField
+                ConfigComboBox {
                     Layout.fillWidth: true
                     buttonIcon: "123"
-                    text: Translation.tr("Numbers family name")
-                    value: Config.options.appearance.fonts.numbers
-                    onValueChanged: {
-                        numbersFontDebounceTimer.restart();
-                    }
-
-                    Timer {
-                        id: numbersFontDebounceTimer
-                        interval: 1000
-                        running: false
-                        onTriggered: {
-                            Config.options.appearance.fonts.numbers = numbersFontField.value;
-                        }
-                    }
+                    text: Translation.tr("Numbers font")
+                    fieldWidth: 260
+                    fixedWidth: true
+                    searchable: true
+                    model: SystemAppearance.fontOptions(Config.options.appearance.fonts.numbers)
+                    currentValue: Config.options.appearance.fonts.numbers
+                    onSelected: newValue => { Config.options.appearance.fonts.numbers = newValue }
                 }
-
-                ConfigTextArea {
-                    id: titleFontField
+                ConfigComboBox {
                     Layout.fillWidth: true
                     buttonIcon: "title"
-                    text: Translation.tr("Title family name")
-                    value: Config.options.appearance.fonts.title
-                    onValueChanged: {
-                        titleFontDebounceTimer.restart();
-                    }
-
-                    Timer {
-                        id: titleFontDebounceTimer
-                        interval: 1000
-                        running: false
-                        onTriggered: {
-                            Config.options.appearance.fonts.title = titleFontField.value;
-                        }
-                    }
+                    text: Translation.tr("Title font")
+                    fieldWidth: 260
+                    fixedWidth: true
+                    searchable: true
+                    model: SystemAppearance.fontOptions(Config.options.appearance.fonts.title)
+                    currentValue: Config.options.appearance.fonts.title
+                    onSelected: newValue => { Config.options.appearance.fonts.title = newValue }
                 }
-
-                ConfigTextArea {
-                    id: monospaceFontField
+                ConfigComboBox {
                     Layout.fillWidth: true
                     buttonIcon: "space_bar"
-                    text: Translation.tr("Monospace font name (e.g., JetBrains Mono NF)")
-                    value: Config.options.appearance.fonts.monospace
-                    onValueChanged: {
-                        monospaceFontDebounceTimer.restart();
-                    }
-
-                    Timer {
-                        id: monospaceFontDebounceTimer
-                        interval: 1000
-                        running: false
-                        onTriggered: {
-                            Config.options.appearance.fonts.monospace = monospaceFontField.value;
-                        }
-                    }
+                    text: Translation.tr("Monospace font")
+                    fieldWidth: 260
+                    fixedWidth: true
+                    searchable: true
+                    model: SystemAppearance.fontOptions(Config.options.appearance.fonts.monospace)
+                    currentValue: Config.options.appearance.fonts.monospace
+                    onSelected: newValue => { Config.options.appearance.fonts.monospace = newValue }
                 }
-
-                ConfigTextArea {
-                    id: iconNerdFontField
+                ConfigComboBox {
                     Layout.fillWidth: true
                     buttonIcon: "emoticon"
-                    text: Translation.tr("Nerd Fonts Icons (e.g., JetBrains Mono NF)")
-                    value: Config.options.appearance.fonts.iconNerd
-                    onValueChanged: {
-                        iconNerdFontDebounceTimer.restart();
-                    }
-
-                    Timer {
-                        id: iconNerdFontDebounceTimer
-                        interval: 1000
-                        running: false
-                        onTriggered: {
-                            Config.options.appearance.fonts.iconNerd = iconNerdFontField.value;
-                        }
-                    }
+                    text: Translation.tr("Nerd Fonts icons")
+                    fieldWidth: 260
+                    fixedWidth: true
+                    searchable: true
+                    model: SystemAppearance.fontOptions(Config.options.appearance.fonts.iconNerd)
+                    currentValue: Config.options.appearance.fonts.iconNerd
+                    onSelected: newValue => { Config.options.appearance.fonts.iconNerd = newValue }
                 }
-
-                ConfigTextArea {
-                    id: readingFontField
+                ConfigComboBox {
                     Layout.fillWidth: true
                     buttonIcon: "book_ribbon"
-                    text: Translation.tr("Reading font name (e.g., Readex Pro)")
-                    value: Config.options.appearance.fonts.reading
-                    onValueChanged: {
-                        readingFontDebounceTimer.restart();
-                    }
-
-                    Timer {
-                        id: readingFontDebounceTimer
-                        interval: 1000
-                        running: false
-                        onTriggered: {
-                            Config.options.appearance.fonts.reading = readingFontField.value;
-                        }
-                    }
+                    text: Translation.tr("Reading font")
+                    fieldWidth: 260
+                    fixedWidth: true
+                    searchable: true
+                    model: SystemAppearance.fontOptions(Config.options.appearance.fonts.reading)
+                    currentValue: Config.options.appearance.fonts.reading
+                    onSelected: newValue => { Config.options.appearance.fonts.reading = newValue }
                 }
-
-                ConfigTextArea {
-                    id: expressiveFontField
+                ConfigComboBox {
                     Layout.fillWidth: true
                     buttonIcon: "mood_heart"
-                    text: Translation.tr("Expressive font name (e.g., Space Grotesk)")
-                    value: Config.options.appearance.fonts.expressive
-                    onValueChanged: {
-                        expressiveFontDebounceTimer.restart();
-                    }
-
-                    Timer {
-                        id: expressiveFontDebounceTimer
-                        interval: 1000
-                        running: false
-                        onTriggered: {
-                            Config.options.appearance.fonts.expressive = expressiveFontField.value;
-                        }
-                    }
+                    text: Translation.tr("Expressive font")
+                    fieldWidth: 260
+                    fixedWidth: true
+                    searchable: true
+                    model: SystemAppearance.fontOptions(Config.options.appearance.fonts.expressive)
+                    currentValue: Config.options.appearance.fonts.expressive
+                    onSelected: newValue => { Config.options.appearance.fonts.expressive = newValue }
                 }
             }
         }
@@ -871,6 +1499,12 @@ ContentPage {
                     text: Translation.tr("Terminal")
                     checked: Config.options.appearance.wallpaperTheming.enableTerminal
                     onCheckedChanged: { Config.options.appearance.wallpaperTheming.enableTerminal = checked }
+                }
+                ConfigSwitch {
+                    buttonIcon: "lock"
+                    text: Translation.tr("Keep Konsole color scheme")
+                    checked: Config.options.appearance.wallpaperTheming.lockKonsoleColors
+                    onCheckedChanged: { Config.options.appearance.wallpaperTheming.lockKonsoleColors = checked }
                 }
                 ConfigRow {
                     uniform: true

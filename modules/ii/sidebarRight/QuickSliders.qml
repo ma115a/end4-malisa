@@ -6,11 +6,16 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Services.UPower
 
 Rectangle {
     id: root
+    WindowGlass {
+        anchors.fill: parent
+        glassEnabled: (parent?.color.a ?? 0) > 0
+        cardRadius: parent?.radius ?? 0
+        tint: parent?.color ?? 'transparent'
+    }
 
     property var screen: root.QsWindow.window?.screen
     property var brightnessMonitor: Brightness.getMonitorForScreen(screen)

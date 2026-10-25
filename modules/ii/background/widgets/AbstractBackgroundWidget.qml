@@ -15,6 +15,9 @@ AbstractWidget {
     required property int scaledScreenWidth
     required property int scaledScreenHeight
     required property real wallpaperScale
+
+    property Item wallpaperItem: null
+
     property bool visibleWhenLocked: Config.options.lock.showWidgets
     property var configEntry: Config.options.background.widgets[configEntryName]
     property string placementStrategy: configEntry.placementStrategy
@@ -36,8 +39,10 @@ AbstractWidget {
 
     property real targetX: Math.max(0, Math.min(savedX, scaledScreenWidth - width))
     property real targetY: Math.max(0, Math.min(savedY, scaledScreenHeight - height))
+    property real targetZ: configEntry.z
     x: targetX
     y: targetY
+    z: targetZ
     visible: opacity > 0
     opacity: (GlobalStates.screenLocked && !visibleWhenLocked) ? 0 : 1
     Behavior on opacity {
@@ -49,12 +54,17 @@ AbstractWidget {
     }
 
     draggable: placementStrategy === "free" && !Config.options.background.widgetsLocked
+
+    function requestDelete() {
+        Config.options.background.widgets[root.configEntryName].enable = false
+    }
     function restoreXYBinding() {
         root.x = Qt.binding(() => root.targetX);
         root.y = Qt.binding(() => root.targetY);
+        root.z = Qt.binding(() => root.targetZ);
     }
 
-    onReleased: {
+    function commitPosition() {
         if (screenName && screenName !== "") {
             let posMap = configEntry.positions ? JSON.parse(JSON.stringify(configEntry.positions)) : {};
             posMap[screenName] = { x: root.x, y: root.y };
@@ -62,10 +72,14 @@ AbstractWidget {
         }
         configEntry.x = root.x;
         configEntry.y = root.y;
+        configEntry.z = root.z;
         root.targetX = Qt.binding(() => Math.max(0, Math.min(root.savedX, scaledScreenWidth - width)));
         root.targetY = Qt.binding(() => Math.max(0, Math.min(root.savedY, scaledScreenHeight - height)));
+        root.targetZ = Qt.binding(() => configEntry.z);
         root.restoreXYBinding();
     }
+
+    onReleased: root.commitPosition()
 
     property bool needsColText: false
     property color dominantColor: Appearance.colors.colPrimary
@@ -100,22 +114,20 @@ AbstractWidget {
         property int contentHeight: 300
         property int horizontalPadding: 200
         property int verticalPadding: 200
-        command: [Quickshell.shellPath("scripts/images/least-busy-region-venv.sh") // Comments to force the formatter to break lines
-            , "--screen-width", Math.round(root.scaledScreenWidth) //
-            , "--screen-height", Math.round(root.scaledScreenHeight) //
-            , "--width", contentWidth //
-            , "--height", contentHeight //
-            , "--horizontal-padding", horizontalPadding //
-            , "--vertical-padding", verticalPadding //
-            , wallpaperPath //
+        command: [Quickshell.shellPath("scripts/images/least-busy-region-venv.sh")
+            , "--screen-width", Math.round(root.scaledScreenWidth)
+            , "--screen-height", Math.round(root.scaledScreenHeight)
+            , "--width", contentWidth
+            , "--height", contentHeight
+            , "--horizontal-padding", horizontalPadding
+            , "--vertical-padding", verticalPadding
+            , wallpaperPath
             , ...(root.placementStrategy === "mostBusy" ? ["--busiest"] : [])
-            // "--visual-output",
         ]
         stdout: StdioCollector {
             id: leastBusyRegionOutputCollector
             onStreamFinished: {
                 const output = leastBusyRegionOutputCollector.text;
-                // console.log("[Background] Least busy region output:", output)
                 if (output.length === 0) return;
                 const parsedContent = JSON.parse(output);
                 root.dominantColor = parsedContent.dominant_color || Appearance.colors.colPrimary;

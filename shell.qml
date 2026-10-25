@@ -2,6 +2,7 @@
 //@ pragma Env QS_NO_RELOAD_POPUP=1
 //@ pragma Env QT_QUICK_CONTROLS_STYLE=Basic
 //@ pragma Env QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
+//@ pragma Env QT_LOGGING_RULES=qt.text.font.db.info=false
 // Remove two slashes below and adjust the value to change the UI scale
 ////@ pragma Env QT_SCALE_FACTOR=1
 import "modules/common"
@@ -27,6 +28,12 @@ ShellRoot {
         target: Config
         function onReadyChanged() {
             if (!Config.ready) return
+
+            if (WM.compositor === "niri") {
+                Config.options.background.lockWall = ""
+                Config.options.overview.enable = false
+            }
+
             if (Config.options.hyprland.autostartApps.enable &&
                 Config.options.hyprland.autostartApps.apps.length > 0) {
                 autostartProc.running = true
@@ -41,6 +48,7 @@ ShellRoot {
         ConflictKiller.load()
         Cliphist.refresh()
         Wallpapers.load()
+        Football.load()
         Updates.load()
         QuickShare.load()
         LyricsService.restartLyrics()

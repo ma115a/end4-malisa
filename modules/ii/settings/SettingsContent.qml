@@ -16,56 +16,47 @@ Item {
     property real contentPadding: 8
     property int currentPage: 0
     property bool showingProfile: false
+    property bool isMinimal: Config.options.settings.style === "minimal"
+
+    function goToTarget(target) {
+        const idx = root.pages.findIndex(p => p.id === target.page);
+        if (idx < 0) return;
+        root.currentPage = idx;
+        root.showingProfile = false;
+        if (!target.label) return;
+
+        const loader = pagesRepeater.itemAt(idx);
+        if (!loader) return;
+        const run = () => loader.item?.goTo(target.label, target.section, target.subsection);
+        if (loader.item) {
+            run();
+        } else {
+            const onceLoaded = () => {
+                loader.loaded.disconnect(onceLoaded);
+                run();
+            };
+            loader.loaded.connect(onceLoaded);
+        }
+    }
 
     Connections {
         target: GlobalStates
-        function onSettingsPageChanged() {
-            if (GlobalStates.settingsPage === "") return
-            
-            let parts = GlobalStates.settingsPage.split(":");
-            let pageName = parts[0];
-            let searchTerm = parts.length > 1 ? parts[1] : "";
-
-            const idx = root.pages.findIndex(p => p.name.toLowerCase() === pageName.toLowerCase());
-            
-            if (idx >= 0) {
-                root.currentPage = idx;
-                root.showingProfile = false;
-                
-                if (searchTerm !== "") {
-                    let loader = pagesRepeater.itemAt(idx);
-                    if (loader && loader.item && typeof loader.item.goTo === "function") {
-                        loader.item.goTo(searchTerm);
-                    } else if (loader) {
-                        loader.onLoaded.connect(function() {
-                            if (loader.item && typeof loader.item.goTo === "function") {
-                                loader.item.goTo(searchTerm);
-                            }
-                        });
-                    }
-                }
-            }
-            GlobalStates.settingsPage = "";
+        function onSettingsTargetChanged() {
+            const target = GlobalStates.settingsTarget;
+            if (!target) return;
+            root.goToTarget(target);
+            GlobalStates.settingsTarget = null;
         }
     }
 
     onCurrentPageChanged: {
-        if (currentPage === 7) {
+        if (root.pages[currentPage]?.id === "about") {
             if (SystemInfo.cpu === "") SystemInfo.refresh()
             Updates.refresh()
         }
     }
     
-    property var pages: [
-        { name: Translation.tr("Quick"),      icon: "instant_mix",    component: Qt.resolvedUrl("pages/QuickConfig.qml") },
-        { name: Translation.tr("General"),    icon: "browse",         component: Qt.resolvedUrl("pages/GeneralConfig.qml") },
-        { name: Translation.tr("Bar"),        icon: "toast",          iconRotation: 180, component: Qt.resolvedUrl("pages/BarConfig.qml") },
-        { name: Translation.tr("Desktop"),    icon: "texture",        component: Qt.resolvedUrl("pages/BackgroundConfig.qml") },
-        { name: Translation.tr("Interface"),  icon: "bottom_app_bar", component: Qt.resolvedUrl("pages/InterfaceConfig.qml") },
-        { name: Translation.tr("Services"),   icon: "settings",       component: Qt.resolvedUrl("pages/ServicesConfig.qml") },
-        { name: Translation.tr("Hyprland"),   icon: "select_window_2",   component: Qt.resolvedUrl("pages/HyprlandConfig.qml") },
-        { name: Translation.tr("About"),      icon: "info",           component: Qt.resolvedUrl("pages/About.qml") }
-    ]
+    property var pages: SettingsPages.pages
 
     Component.onCompleted: {
         Config.readWriteDelay = 0
@@ -94,7 +85,7 @@ Item {
                 Layout.fillHeight: true
                 Layout.margins: 0
                 implicitWidth: navRail.expanded ? 195 : fab.baseSize
-                color: Appearance.m3colors.m3surfaceContainerLow
+                color: isMinimal ? "transparent" : Appearance.colors.colLayer1
                 radius: Appearance.rounding.normal
 
                 Behavior on implicitWidth {
@@ -107,76 +98,52 @@ Item {
                     spacing: 10
                     expanded: root.width > 900
 
-                    RowLayout {
-                        visible: navRail.expanded
-                        spacing: 10
-                        Layout.fillWidth: true
-                        Layout.margins: 5
+                    Item {
+                        id: profileRowContainer
+                        visible: true
+                        Layout.fillWidth: false
+                        Layout.margins: isMinimal ? 0 : 5
                         Layout.topMargin: 15
+                        Layout.bottomMargin: isMinimal ? -30 : 0
+                        implicitHeight: profileRow.implicitHeight
+                        implicitWidth: profileRow.implicitWidth
 
-                        Rectangle {
-                            id: avatarRect
-                            width: 48
-                            height: 48
-                            radius: width / 2
-                            color: Appearance.colors.colPrimaryContainer
+                        RowLayout {
+                            id: profileRow
+                            anchors.fill: parent
+                            spacing: 10
 
-                            Image {
-                                id: avatarImage
-                                anchors.fill: parent
-                                source: Config.options.profile.avatarPath !== "" 
-                                    ? "file://" + Config.options.profile.avatarPicture 
-                                    : "file:///home/" + (Quickshell.env("USER") ?? "user") + "/.face"
-                                sourceSize.width: avatarImage.width * 2
-                                sourceSize.height: avatarImage.height * 2
-                                fillMode: Image.PreserveAspectCrop
-                                layer.enabled: true
-                                layer.effect: OpacityMask {
-                                    maskSource: Rectangle {
-                                        width: avatarRect.width
-                                        height: avatarRect.height
-                                        radius: avatarRect.radius
+                            UserAvatar {
+                                width: 48
+                                height: 48
+                            }
+
+                            ColumnLayout {
+                                spacing: 2
+                                Layout.fillWidth: true
+                                visible: !isMinimal
+
+                                StyledText {
+                                    text: Config.options.profile.displayName === "" ? SystemInfo.username : Config.options.profile.displayName
+                                    font.pixelSize: Appearance.font.pixelSize.normal
+                                    color: Appearance.colors.colOnLayer1
+                                    font.weight: Font.Medium
+                                    elide: Text.ElideRight
+                                    Layout.maximumWidth: 100
+                                }
+
+                                StyledText {
+                                    id: distroText
+                                    font.pixelSize: Appearance.font.pixelSize.smaller
+                                    color: Appearance.colors.colSubtext
+                                    elide: Text.ElideRight
+                                    Layout.maximumWidth: 100
+
+                                    text: {
+                                        const d = Config.options.profile.descriptionText
+                                        if (d === "::uptime::") return Translation.tr("Up • %1").arg(DateTime.uptime)
+                                        return SystemInfo.distroName
                                     }
-                                }
-                                onStatusChanged: {
-                                    if (status === Image.Error)
-                                        visible = false
-                                }
-                            }
-
-                            MaterialSymbol {
-                                anchors.centerIn: parent
-                                text: "account_circle"
-                                iconSize: 32
-                                color: Appearance.colors.colOnPrimaryContainer
-                                visible: avatarImage.status === Image.Error
-                            }
-                        }
-
-                        ColumnLayout {
-                            spacing: 2
-                            Layout.fillWidth: true
-
-                            StyledText {
-                                text: Config.options.profile.displayName === "" ? SystemInfo.username : Config.options.profile.displayName
-                                font.pixelSize: Appearance.font.pixelSize.normal
-                                color: Appearance.colors.colOnLayer1
-                                font.weight: Font.Medium
-                                elide: Text.ElideRight
-                                Layout.maximumWidth: 100
-                            }
-
-                            StyledText {
-                                id: distroText
-                                font.pixelSize: Appearance.font.pixelSize.smaller
-                                color: Appearance.colors.colSubtext
-                                elide: Text.ElideRight
-                                Layout.maximumWidth: 100
-
-                                text: {
-                                    const d = Config.options.profile.descriptionText
-                                    if (d === "::uptime::") return Translation.tr("Up • %1").arg(DateTime.uptime)
-                                    return SystemInfo.distroName
                                 }
                             }
                         }
@@ -189,8 +156,9 @@ Item {
                     }
 
                     Rectangle {
-                        width: 160
-                        Layout.topMargin: -5
+                        Layout.preferredWidth: isMinimal ? 50 : 160
+                        Layout.topMargin: isMinimal ? 30 : -5
+                        Layout.bottomMargin: isMinimal ? -30 : 0
                         height: 2
                         gradient: Gradient {
                             orientation: Gradient.Horizontal
@@ -204,6 +172,7 @@ Item {
 
                     FloatingActionButton {
                         id: fab
+                        visible: !isMinimal
                         Layout.bottomMargin: -25
                         property bool justCopied: false
                         iconText: justCopied ? "check" : "edit"
