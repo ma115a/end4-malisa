@@ -245,7 +245,7 @@ Variants {
                 id: previousWallpaper
                 anchors.fill: parent
                 fillMode: Image.PreserveAspectCrop
-                cache: true
+                cache: false
                 smooth: true
                 asynchronous: true
                 layer.enabled: bgRoot.transitionProgress < 1.0
@@ -256,7 +256,7 @@ Variants {
                 id: wallpaper
                 anchors.fill: parent
                 fillMode: Image.PreserveAspectCrop
-                cache: true
+                cache: false
                 smooth: true
                 asynchronous: true
                 visible: !blurLoader.active && !bgRoot.centeredWallpaperEnabled && !bgRoot.videoRevealed
